@@ -5,11 +5,11 @@ module Main (main) where
 import Control.Spoon (spoon, teaspoon)
 import Data.Bifunctor (first)
 import Data.Function (on)
-import Data.Ratio ((%))
+import Data.Ratio ((%), numerator, denominator)
 import qualified Data.Set as Set
 import Debug.Trace (trace)
 import System.IO (hFlush, stdout)
-import Text.Printf
+import Text.Printf (printf)
 
 dup :: (Ord a) => [a] -> Maybe a
 dup xs = dup' xs Set.empty
@@ -23,12 +23,14 @@ dup xs = dup' xs Set.empty
 dbg :: Bool
 dbg = False
 
-t :: Show a => String -> a -> a
+t :: (Show a) => String -> a -> a
 t f x = if dbg then trace (printf "%s %s" f (show x)) x else x
 
-wr :: Show a => String -> a -> Bool
+wr :: (Show a) => String -> a -> Bool
 wr s x = not dbg || trace (printf "%s %s" s (show x)) True
 
+-- Quad a True b c = (a-√b)/c
+-- Quad a False b c = (a+√b)/c
 data Quad = Quad
     { num :: Integer
     -- ^ numerator
@@ -65,10 +67,9 @@ cfstep (Quad n b r d) | wr "cfstep" (Quad n b r d) = let ip = floor ((fromIntege
 
 rcp :: Quad -> Maybe Quad
 rcp q@(Quad n False r d) | wr "rcp" q = normalize <$> if r /= n * n then return (Quad (-d * n) False (d * d * r) (r - n * n)) else Nothing
-rcp q@(Quad n True r d) | wr "rcp" q = normalize <$> if r /= n * n then return (Quad (d*n) False (d*d*r) (n*n-r)) else Nothing
--- d / n-√r * n+√r / n+√r
+rcp q@(Quad n True r d) | wr "rcp" q = normalize <$> if r /= n * n then return (Quad (d * n) False (d * d * r) (n * n - r)) else Nothing
+-- d / n-√r * n+√r / n+√r = (dn+d√r) / (n²-r)
 
--- | Left means fraction, Right means irrational
 cf :: Quad -> CF
 cf x =
     let entries = lst x
@@ -99,6 +100,21 @@ getInteger prompt = do
         Just n -> return n
         Nothing -> getInteger prompt -- keep asking if we don't get anything
 
+poly :: Quad -> String
+poly (Quad a n b c) =
+    let (a', b') = (a % c, b % (c ^ 2)) in
+    let p = 2*a' in
+    let q = b' - a' * a' in
+      printf
+            "This is a root of the monic polynomial x² + (%s)x + (%s)\nAs a result, it has p = %s\tq = %s"
+            (show' $ -p)
+            (show' $ -q)
+            (show' p)
+            (show' q)
+  where
+    show' :: Rational -> String
+    show' x = if abs (denominator x) == 1 then show (denominator x * numerator x) else show x
+
 main :: IO ()
 main = do
     putStrLn "This calculator assumes a number in the form (a+√b)/c"
@@ -108,3 +124,4 @@ main = do
     let q = normalize $ Quad a (b < 0) (abs b) c
     let f = cf q
     print f
+    putStrLn $ poly q
