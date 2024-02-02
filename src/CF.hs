@@ -21,7 +21,7 @@ dup xs = dup' xs Set.empty
             else dup' xs (Set.insert x s)
 
 dbg :: Bool
-dbg = True
+dbg = False
 
 t :: Show a => String -> a -> a
 t f x = if dbg then trace (printf "%s %s" f (show x)) x else x
