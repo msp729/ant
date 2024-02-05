@@ -5,7 +5,7 @@ module Main (main) where
 import Control.Spoon (spoon, teaspoon)
 import Data.Bifunctor (first)
 import Data.Function (on)
-import Data.Ratio ((%), numerator, denominator)
+import Data.Ratio (denominator, numerator, (%))
 import qualified Data.Set as Set
 import Debug.Trace (trace)
 import System.IO (hFlush, stdout)
@@ -45,10 +45,10 @@ data Quad = Quad
 data CF = Rational [Integer] | Irrational {prefix :: [Integer], rep :: [Integer]} deriving (Ord, Eq)
 
 instance Show CF where
-    show (Rational (x : xs)) = "[" ++ show x ++ "; " ++ tail (show xs)
+    show (Rational (x : xs)) = "[" ++ show x ++ "; " ++ drop 1 (show xs)
     show (Rational []) = "[]"
-    show (Irrational (p : ps) r) = "[" ++ show p ++ "; " ++ init (tail (show ps)) ++ "; " ++ tail (show r)
-    show (Irrational [] r) = "[;;" ++ tail (show r)
+    show (Irrational (p : ps) r) = "[" ++ show p ++ "; " ++ init (drop 1 (show ps)) ++ "; " ++ drop 1 (show r)
+    show (Irrational [] r) = "[;;" ++ drop 1 (show r)
 
 instance Show Quad where
     show (Quad n b r d) = printf "(%i%s√%i)/%i" n (if b then "-" else "+") r d
@@ -68,6 +68,7 @@ cfstep (Quad n b r d) | wr "cfstep" (Quad n b r d) = let ip = floor ((fromIntege
 rcp :: Quad -> Maybe Quad
 rcp q@(Quad n False r d) | wr "rcp" q = normalize <$> if r /= n * n then return (Quad (-d * n) False (d * d * r) (r - n * n)) else Nothing
 rcp q@(Quad n True r d) | wr "rcp" q = normalize <$> if r /= n * n then return (Quad (d * n) False (d * d * r) (n * n - r)) else Nothing
+
 -- d / n-√r * n+√r / n+√r = (dn+d√r) / (n²-r)
 
 cf :: Quad -> CF
@@ -102,15 +103,24 @@ getInteger prompt = do
 
 poly :: Quad -> String
 poly (Quad a n b c) =
-    let (a', b') = (a % c, b % (c ^ 2)) in
-    let p = 2*a' in
-    let q = b' - a' * a' in
-      printf
-            "This is a root of the monic polynomial x² + (%s)x + (%s)\nAs a result, it has p = %s\tq = %s"
-            (show' $ -p)
-            (show' $ -q)
-            (show' p)
-            (show' q)
+    let (a', b') = (a % c, b % (c ^ 2))
+     in let p = 2 * a'
+         in let q = b' - a' * a'
+             in let d = (lcm `on` denominator) p q
+             in let p' = -numerator (p * (d % 1))
+             in let q' = -numerator (q * (d % 1))
+                 in printf
+                        ( "Monic in ℚ[x]: x² + (%s)x + (%s)"
+                        ++ "\nIn ℤ[x]: %ix² %+ix %+i"
+                            ++ "\nL.R. of the generalized fibonacci where p = %s, & q = %s"
+                        )
+                        (show' $ -p)
+                        (show' $ -q)
+                        d
+                        p'
+                        q'
+                        (show' p)
+                        (show' q)
   where
     show' :: Rational -> String
     show' x = if abs (denominator x) == 1 then show (denominator x * numerator x) else show x
@@ -121,7 +131,9 @@ main = do
     a <- getInteger "What is a? "
     b <- getInteger "What is b? "
     c <- getInteger "What is c? "
+    putStrLn ""
     let q = normalize $ Quad a (b < 0) (abs b) c
     let f = cf q
     print f
+    putStrLn "\npolynomials:"
     putStrLn $ poly q
