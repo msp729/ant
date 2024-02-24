@@ -111,7 +111,7 @@ poly (Quad a n b c) =
              in let q' = -numerator (q * (d % 1))
                  in printf
                         ( "Monic in ℚ[x]: x² + (%s)x + (%s)"
-                        ++ "\nIn ℤ[x]: %ix² %+ix %+i"
+                        ++ "\nNon-monic in ℤ[x]: %ix² %+ix %+i"
                             ++ "\nL.R. of the generalized fibonacci where p = %s, & q = %s"
                         )
                         (show' $ -p)
@@ -131,6 +131,8 @@ main = do
     a <- getInteger "What is a? "
     b <- getInteger "What is b? "
     c <- getInteger "What is c? "
+    putStrLn ""
+    printf "your surd is approximately %f" ((fromInteger a + (signum (fromInteger b) * sqrt (abs $ fromInteger b))) / fromInteger c :: Double)
     putStrLn ""
     let q = normalize $ Quad a (b < 0) (abs b) c
     let f = cf q
