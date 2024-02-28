@@ -6,10 +6,10 @@ import System.IO
 import Data.Ratio
 
 mseq :: Integer -> Integer -> [Integer]
-mseq p q = 1:1:zipWith (\a b -> p * b + q * a) (mseq p q) (tail $ mseq p q)
+mseq p q = 1:1:zipWith (\a b -> p * b + q * a) (mseq p q) (drop 1 $ mseq p q)
 
 nseq :: Double -> Double -> [Double]
-nseq p q = 1:1:zipWith (\a b -> (a-p*b)/q) (nseq p q) (tail $ nseq p q)
+nseq p q = 1:1:zipWith (\a b -> (a-p*b)/q) (nseq p q) (drop 1 $ nseq p q)
 
 unplus :: Char -> Char
 unplus '+' = ' '
@@ -25,7 +25,7 @@ main = do
     (read -> q :: Integer) <- getLine
 
     let ms = mseq p q
-    let pc = zip [1..] $ zip ms $ tail ms
+    let pc = zip [1..] $ zip ms $ drop 1 ms
     let p' = fromInteger p
     let q' = fromInteger q
     let r :: Double = (p' + sqrt (p' * p' + 4 * q')) / 2
@@ -44,7 +44,7 @@ main = do
     putStrLn ""
 
     let ms = nseq p' q'
-    let pc = zip [2,1..] $ zip ms $ tail ms
+    let pc = zip [2,1..] $ zip ms $ drop 1 ms
     let r :: Double = (p' - sqrt (p' * p' + 4 * q')) / 2
 
     printf "conjugate r = %.8f\n" r

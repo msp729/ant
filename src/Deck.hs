@@ -1,21 +1,14 @@
+{-# LANGUAGE ViewPatterns #-}
+
 module Main (main) where
 
+import Control.Monad.State.Strict
+import Data.Function
+import Data.List
+import Data.Ord
 import Text.Printf
 
-data Value
-    = Ace
-    | Two
-    | Three
-    | Four
-    | Five
-    | Six
-    | Seven
-    | Eight
-    | Nine
-    | Ten
-    | Jack
-    | Queen
-    | King
+data Value = Ace | Two | Three | Four | Five | Six | Seven | Eight | Nine | Ten | Jack | Queen | King
     deriving (Eq, Enum)
 
 instance Show Value where
@@ -45,6 +38,8 @@ instance Show Card where show (Card v s) = show v ++ show s
 
 type Deck = [Card]
 type Hand = [Card]
+type P x = x -> Bool
+type HAND = P Hand
 
 face :: Value -> Bool
 face King = True
@@ -65,26 +60,72 @@ deck = do
     return $ Card value suit
 
 nchands :: Int -> Deck -> [Hand]
-nchands n d | n <= 0 = [] 
-nchands 1 d = (:[]) <$> d
-nchands n (x:xs) = ((x:) <$> nchands (n-1) xs) ++ nchands n xs
+nchands n d | n <= 0 = []
+nchands 1 d = (: []) <$> d
+nchands n (x : xs) = ((x :) <$> nchands (n - 1) xs) ++ nchands n xs
 nchands n [] = []
 
-heartcond :: Hand -> Bool
-heartcond = (== 2) . length . filter isheart
+dups :: (Eq a) => [a] -> [a]
+dups (x : xs) = if elem x xs then x : dups xs else dups xs
+dups [] = []
 
-facecond :: Hand -> Bool
-facecond = (== 2) . length . filter isface
+pair, twopair, three :: HAND
+pair h = (== 1) $ length $ dups $ value <$> h
+twopair (fmap value -> h) = case dups h of
+    [x, y] -> x /= y
+    _ -> False
+three (fmap value -> h) = case dups h of
+    [x, y] -> x == y
+    _ -> False
+
+straight :: HAND
+straight h = maybe False helper $ uncons $ value <$> sortBy (comparing (fromEnum . value)) h
+  where
+    helper :: (Value, [Value]) -> Bool
+    helper (Ace, rest) = rest == [Two .. Five] || rest == [Ten .. King]
+    helper (fromEnum -> x, rest) = fmap fromEnum rest == [x + 1 .. x + 4]
+
+flush :: HAND
+flush = (>= 4) . length . dups . fmap suit
+
+fullhouse, four :: HAND
+fullhouse h =
+    let l = dups $ value <$> h
+     in length l == 3
+            && length (dups l) == 1
+four (dups . fmap value -> (x : xs)) = (>= 2) $ length $ filter (== x) xs
+four _ = False
+
+sf :: HAND
+sf h = straight h && flush h
+
+hands :: [(String, Hand -> Bool)]
+hands =
+    [ ("straight flush   ", sf)
+    , ("four of a kind   ", four)
+    , ("full house       ", fullhouse)
+    , ("flush            ", flush)
+    , ("straight         ", straight)
+    , ("three of a kind  ", three)
+    , ("two pair         ", twopair)
+    , ("pair             ", pair)
+    , ("high card        ", const True)
+    ]
+
+runhands :: StateT [Hand] IO ()
+runhands = sequence_ $ flip fmap hands $ \(n, p) -> do
+    psb <- get
+    put $ filter (not . p) psb
+    let good = length $ filter p $ psb
+    lift $ printf "%s %.06f%% (%i)\n" n (prob good) good
+
+possible :: [Hand]
+possible = nchands 5 deck
+
+prob :: Int -> Double
+prob n = 100 * fromInteger (toInteger n) / fromInteger (toInteger (length possible))
 
 main :: IO ()
 main = do
-    let hands = nchands 5 deck
-    let either = filter (liftA2 (||) heartcond facecond) hands
-    let hearts = filter heartcond either
-    let faces = filter facecond either
-    let both = filter heartcond faces
-    printf "total hands: %i\n" (length hands)
-    printf "either: %i\n" (length either)
-    printf "hearts: %i\n" (length hearts)
-    printf "faces: %i\n" (length faces)
-    printf "both: %i\n" (length both)
+    evalStateT runhands possible
+    return ()
