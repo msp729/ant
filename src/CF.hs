@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Control.Spoon (spoon, teaspoon)
+import Control.Spoon (spoon)
 import Data.Bifunctor (first)
 import Data.Function (on)
 import Data.Ratio (denominator, numerator, (%))
